@@ -4,12 +4,18 @@
 package app
 
 import (
+	"fmt"
 	"log"
 	"telegramBot/configs"
+
+	"telegramBot/internal/app/database"
+
+	openai "telegramBot/internal/pkg/openai"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+// Функция пулинга бота (запуск обработки сообщений)
 func StartBot() {
 	// Запуск бота, создается объект бота (API-Токен взят из конфига)
 	bot, err := tgbotapi.NewBotAPI(configs.TELEGRAM_API_TOKEN)
@@ -26,8 +32,40 @@ func StartBot() {
 
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
-		if update.Message != nil {
-			if update.Message.Text == "/start" {
+		if update.Message == nil {
+			continue
+		}
+
+		// ChatGPT Handler
+		if !update.Message.IsCommand() {
+			err, ureq := database.GetUserRequest(update.Message.Chat.ID)
+
+			if err != nil {
+				log.Printf("[LOG]: Возникла ошибка при обработке значений пользователя %d\n%v", update.Message.Chat.ID, err)
+			}
+
+			// Проверка, не закончились ли запросы у пользователя
+			if ureq <= 0 {
+				ErrorMsg := tgbotapi.NewMessage(update.Message.Chat.ID, configs.RequestsLimitError)
+				bot.Send(ErrorMsg)
+			} else {
+				WaitMsg := tgbotapi.NewMessage(update.Message.Chat.ID, "⌛ Пожалуйста, подождите... Ваш запрос обрабатывается")
+				bot.Send(WaitMsg)
+
+				err, resp := openai.GenerateResponse(update.Message.Text)
+				if err != nil {
+					resp = configs.ChatGPTGenerateError
+				}
+
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, resp)
+				bot.Send(msg)
+			}
+		}
+
+		// Start Command handler
+		switch update.Message.Command() {
+		case "start":
+			{
 				ErrorRead, StringContent := ReadStartFile()
 				var msg tgbotapi.MessageConfig
 
@@ -37,10 +75,18 @@ func StartBot() {
 				} else {
 					msg = tgbotapi.NewMessage(update.Message.Chat.ID, StringContent)
 				}
-				msg.ReplyToMessageID = update.Message.MessageID
-				log.Println(update.Message.From.ID)
-
 				bot.Send(msg)
+
+				err, u := database.SelectData(fmt.Sprintf("SELECT * FROM `users` WHERE `chat_id` = '%d';", update.Message.Chat.ID))
+				if err != nil {
+					log.Printf("Возникла ошибка при получении данных пользователя")
+				} else {
+					if u.Chat_id == 0 {
+						database.InsertData(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
+					} else {
+						fmt.Printf("[LOG] Пользователь %s (%d) использовал команду /start, но он зарегистрирован\n", update.Message.From.UserName, update.Message.Chat.ID)
+					}
+				}
 			}
 		}
 	}
