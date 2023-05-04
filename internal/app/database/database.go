@@ -33,7 +33,7 @@ func ConnectToDataBase() *sql.DB {
 }
 
 // Функция вставки новых данных в таблицу бд
-func InsertData(Data string) error {
+func RunRequest(Data string) error {
 	db := ConnectToDataBase()
 	insert, err := db.Query(Data)
 	if err != nil {

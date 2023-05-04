@@ -9,6 +9,7 @@ import (
 	"telegramBot/configs"
 
 	"telegramBot/internal/app/database"
+	"telegramBot/internal/app/keyboards"
 
 	openai "telegramBot/internal/pkg/openai"
 
@@ -47,6 +48,7 @@ func StartBot() {
 			// Проверка, не закончились ли запросы у пользователя
 			if ureq <= 0 {
 				ErrorMsg := tgbotapi.NewMessage(update.Message.Chat.ID, configs.RequestsLimitError)
+				ErrorMsg.ReplyMarkup = keyboards.GetShopKeyboard()
 				bot.Send(ErrorMsg)
 			} else {
 				WaitMsg := tgbotapi.NewMessage(update.Message.Chat.ID, "⌛ Пожалуйста, подождите... Ваш запрос обрабатывается")
@@ -59,6 +61,11 @@ func StartBot() {
 
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, resp)
 				bot.Send(msg)
+			}
+			// Отнятие одного запроса у пользователя
+			err = database.RunRequest(fmt.Sprintf("UPDATE `users` SET `requests` = `requests` - '1' WHERE `chat_id` = '%d';", update.Message.Chat.ID))
+			if err != nil {
+				log.Printf("Возникла ошибка обработки запроса:\n\n%v\n", err)
 			}
 		}
 
@@ -82,7 +89,7 @@ func StartBot() {
 					log.Printf("Возникла ошибка при получении данных пользователя")
 				} else {
 					if u.Chat_id == 0 {
-						database.InsertData(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
+						database.RunRequest(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
 					} else {
 						fmt.Printf("[LOG] Пользователь %s (%d) использовал команду /start, но он зарегистрирован\n", update.Message.From.UserName, update.Message.Chat.ID)
 					}
