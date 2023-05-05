@@ -4,14 +4,12 @@
 package app
 
 import (
-	"fmt"
 	"log"
 	"telegramBot/configs"
 
-	"telegramBot/internal/app/database"
-	"telegramBot/internal/app/keyboards"
-
-	openai "telegramBot/internal/pkg/openai"
+	"telegramBot/internal/app/handlers/chatgpt"
+	"telegramBot/internal/app/handlers/keyboardhandler"
+	"telegramBot/internal/app/handlers/startcommand"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -33,14 +31,9 @@ func StartBot() {
 
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
+
 		if update.CallbackQuery != nil {
-			go func() {
-				callbackData := update.CallbackQuery.Data
-				if callbackData == "100ReqCall" || callbackData == "200ReqCall" || callbackData == "500ReqCall" || callbackData == "1000ReqCall" {
-					msg := tgbotapi.NewMessage(update.CallbackQuery.From.ID, "😅 В данный момент система оплаты ещё не готова.\n\nВы можете оплатить услуги за использование у администратора: @catborisovv")
-					bot.Send(msg)
-				}
-			}()
+			keyboardhandler.ShopKeyBoardHandler(update, *bot)
 		}
 
 		if update.Message == nil {
@@ -49,68 +42,14 @@ func StartBot() {
 
 		// ChatGPT Handler
 		if !update.Message.IsCommand() {
-			// При использовании функции запускаем ее в отдельном потоке, чтобы не перегружать бота
-			go func() {
-				err, ureq := database.GetUserRequest(update.Message.Chat.ID)
-
-				if err != nil {
-					log.Printf("[LOG]: Возникла ошибка при обработке значений пользователя %d\n%v", update.Message.Chat.ID, err)
-				}
-
-				// Проверка, не закончились ли запросы у пользователя
-				if ureq <= 0 {
-					ErrorMsg := tgbotapi.NewMessage(update.Message.Chat.ID, configs.RequestsLimitError)
-					ErrorMsg.ReplyMarkup = keyboards.GetShopKeyboard()
-					bot.Send(ErrorMsg)
-				} else {
-					WaitMsg := tgbotapi.NewMessage(update.Message.Chat.ID, "⌛ Пожалуйста, подождите... Ваш запрос обрабатывается")
-					bot.Send(WaitMsg)
-
-					err, resp := openai.GenerateResponse(update.Message.Text)
-					if err != nil {
-						resp = configs.ChatGPTGenerateError
-					}
-
-					msg := tgbotapi.NewMessage(update.Message.Chat.ID, resp)
-					bot.Send(msg)
-
-					// Отнятие одного запроса у пользователя
-					err = database.RunRequest(fmt.Sprintf("UPDATE `users` SET `requests` = `requests` - '1' WHERE `chat_id` = '%d';", update.Message.Chat.ID))
-					if err != nil {
-						log.Printf("Возникла ошибка обработки запроса:\n\n%v\n", err)
-					}
-				}
-			}()
+			chatgpt.ChatGPTHandler(update, *bot)
 		}
 
 		// Start Command handler
 		switch update.Message.Command() {
 		case "start":
 			{
-				// Запуск горутины (запускам функцию в отедльном потоке чтобы избежать переплетения функций у разных пользователей)
-				go func() {
-					ErrorRead, StringContent := ReadStartFile()
-					var msg tgbotapi.MessageConfig
-
-					if ErrorRead != nil {
-						log.Printf("Возникла ошибка при прочтении файла:\n%v\n", ErrorRead)
-						msg = tgbotapi.NewMessage(update.Message.Chat.ID, configs.StartMessageError)
-					} else {
-						msg = tgbotapi.NewMessage(update.Message.Chat.ID, StringContent)
-					}
-					bot.Send(msg)
-
-					err, u := database.SelectData(fmt.Sprintf("SELECT * FROM `users` WHERE `chat_id` = '%d';", update.Message.Chat.ID))
-					if err != nil {
-						log.Printf("Возникла ошибка при получении данных пользователя")
-					} else {
-						if u.Chat_id == 0 {
-							database.RunRequest(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
-						} else {
-							fmt.Printf("[LOG] Пользователь %s (%d) использовал команду /start, но он зарегистрирован\n", update.Message.From.UserName, update.Message.Chat.ID)
-						}
-					}
-				}()
+				startcommand.StartCommandHandler(update, *bot)
 			}
 		}
 	}
