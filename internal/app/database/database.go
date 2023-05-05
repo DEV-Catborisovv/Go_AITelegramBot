@@ -99,5 +99,7 @@ func SelectData(Data string) (error, *SData) {
 	// Завершение сессии БД
 	defer db.Close()
 	defer res.Close()
+
+	// Возврат указателя на структуру
 	return nil, &user
 }
