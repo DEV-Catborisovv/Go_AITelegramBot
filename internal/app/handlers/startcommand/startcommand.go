@@ -32,7 +32,10 @@ func StartCommandHandler(update tgbotapi.Update, bot tgbotapi.BotAPI) {
 			log.Printf("Возникла ошибка при получении данных пользователя")
 		} else {
 			if u.Chat_id == 0 {
-				database.RunRequest(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
+				err = database.RunRequest(fmt.Sprintf("INSERT INTO `users` (`id`, `chat_id`, `username`, `requests`, `admin`) VALUES (NULL, '%d', '%s', '100', '0');", update.Message.Chat.ID, update.Message.From.UserName))
+				if err != nil {
+					log.Fatalf("Возникла ошибка при обраблотке значения: %s\n", err)
+				}
 			} else {
 				fmt.Printf("[LOG] Пользователь %s (%d) использовал команду /start, но он зарегистрирован\n", update.Message.From.UserName, update.Message.Chat.ID)
 			}

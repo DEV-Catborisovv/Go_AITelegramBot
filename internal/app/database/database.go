@@ -20,8 +20,8 @@ type SData struct {
 	Admin    uint
 }
 
-// Константа в которой содержатся значения из нашего конфига
-const connectData = configs.PG_USER + ":" + configs.PG_PASS + "@tcp(" + configs.PG_HOST + ")" + "/" + configs.PG_DB
+// Отформатированная строка для подключения к базе данных
+var connectData string = fmt.Sprintf("%s:%s@tcp(%s)/%s", configs.PG_USER, configs.PG_PASS, configs.PG_HOST, configs.PG_DB)
 
 // Функция подключения к базе данных
 func ConnectToDataBase() *sql.DB {

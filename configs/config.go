@@ -1,10 +1,10 @@
 package configs
 
 // Telegram-Token
-const TELEGRAM_API_TOKEN = "6194274615:AAFiJImglwN_mrgfGq_1HM2UrKHaMgHA9ZE"
+const TELEGRAM_API_TOKEN = ""
 
 // OpenAI API-Token
-const OPEN_AI_TOKEN = "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"
+const OPEN_AI_TOKEN = ""
 
 // DEBUG MODE
 const DEBUG_MODE = false
@@ -13,7 +13,7 @@ const DEBUG_MODE = false
 const TIMEOUT = 60
 
 // DataBase connection config
-const PG_USER = "root"
-const PG_PASS = "root"
-const PG_DB = "cataibot"
-const PG_HOST = "127.0.0.1:8889"
+const PG_USER = ""
+const PG_PASS = ""
+const PG_DB = ""
+const PG_HOST = ""

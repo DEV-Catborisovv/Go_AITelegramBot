@@ -9,6 +9,7 @@ import (
 
 	"telegramBot/internal/app/handlers/chatgpt"
 	"telegramBot/internal/app/handlers/keyboardhandler"
+	"telegramBot/internal/app/handlers/settings"
 	"telegramBot/internal/app/handlers/startcommand"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -50,6 +51,10 @@ func StartBot() {
 		case "start":
 			{
 				startcommand.StartCommandHandler(update, *bot)
+			}
+		case "settings":
+			{
+				settings.SettingsCommandHandler(update, *bot)
 			}
 		}
 	}
